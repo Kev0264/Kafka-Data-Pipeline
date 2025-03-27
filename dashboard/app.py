@@ -1,7 +1,8 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, Response
 import psycopg2
 import os
-from datetime import datetime, timedelta
+import json
+from datetime import datetime, time, timedelta
 
 app = Flask(__name__)
 
@@ -15,8 +16,7 @@ def get_db_connection():
     )
 
 
-@app.route('/')
-def dashboard():
+def get_dashboard_data():
     conn = get_db_connection()
     cur = conn.cursor()
 
@@ -42,7 +42,11 @@ def dashboard():
     ORDER BY total_revenue DESC
     LIMIT 5
     """)
-    top_products = cur.fetchall()
+    top_products = [{
+        'name': row[0],
+        'quantity': row[1],
+        'revenue': float(row[2])
+    } for row in cur.fetchall()]
 
     # Sales trend (last 7 days)
     date_7_days_ago = today - timedelta(days=7)
@@ -52,17 +56,46 @@ def dashboard():
     WHERE date >= %s
     ORDER BY date
     """, (date_7_days_ago,))
-    sales_trend = cur.fetchall()
+    sales_trend = [{
+        'date': row[0].strftime('%Y-%m-%d'),
+        'sales': float(row[1]),
+        'orders': row[2]
+    } for row in cur.fetchall()]
 
     cur.close()
     conn.close()
 
-    return render_template('dashboard.html',
-                           total_sales=total_sales,
-                           today_sales=today_sales,
-                           today_orders=today_orders,
-                           top_products=top_products,
-                           sales_trend=sales_trend)
+    return {
+        'total_sales': total_sales,
+        'today_sales': today_sales,
+        'today_orders': today_orders,
+        'top_products': top_products,
+        'sales_trend': sales_trend
+    }
+
+
+@app.route('/')
+def index():
+    return render_template('dashboard.html')
+
+
+@app.route('/stream')
+def stream():
+    def event_stream():
+        while True:
+            try:
+                data = get_dashboard_data()
+                yield f"data: {json.dumps(data)}\n\n"
+                time.sleep(5)
+            except Exception as e:
+                print(f"Error in stream: {str(e)}")
+                time.sleep(1)
+
+    return Response(
+        event_stream(),
+        mimetype="text/event-stream",
+        headers={'Cache-Control': 'no-cache'}
+    )
 
 
 if __name__ == '__main__':

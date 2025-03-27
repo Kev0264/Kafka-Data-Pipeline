@@ -6,33 +6,14 @@
     <title>E-Commerce Analytics Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/moment"></script>
   </head>
   <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8">
-      <h1 class="text-3xl font-bold text-center mb-8 text-blue-800">E-Commerce Analytics Dashboard</h1>
+      <h1 class="text-3xl font-bold text-center mb-8 text-blue-800">Real-Time E-Commerce Dashboard</h1>
 
       <!-- Summary Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow p-6">
-          <h3 class="text-lg font-semibold text-gray-700 mb-2">Total Sales</h3>
-          <p class="text-3xl font-bold text-blue-600">${{ "%.2f"|format(total_sales) }}</p>
-        </div>
-
-        <div class="bg-white rounded-lg shadow p-6">
-          <h3 class="text-lg font-semibold text-gray-700 mb-2">Today's Sales</h3>
-          <p class="text-3xl font-bold text-green-600">${{ "%.2f"|format(today_sales) }}</p>
-          <p class="text-sm text-gray-500">{{ today_orders }} orders</p>
-        </div>
-
-        <div class="bg-white rounded-lg shadow p-6">
-          <h3 class="text-lg font-semibold text-gray-700 mb-2">Data Pipeline Status</h3>
-          <div class="flex items-center">
-            <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-            <span class="text-sm">Kafka Pipeline Active</span>
-          </div>
-          <p class="text-sm text-gray-500 mt-2">Real-time processing</p>
-        </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" id="summary-cards">
+        <!-- Cards will be populated by JavaScript -->
       </div>
 
       <!-- Sales Trend Chart -->
@@ -45,7 +26,7 @@
       <div class="bg-white rounded-lg shadow p-6 mb-8">
         <h2 class="text-xl font-semibold mb-4 text-gray-800">Top Selling Products</h2>
         <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
+          <table class="min-w-full divide-y divide-gray-200" id="products-table">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
@@ -57,120 +38,129 @@
                 </th>
               </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              {% for product in top_products %}
-              <tr>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ product[0] }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ product[1] }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${{ "%.2f"|format(product[2]) }}</td>
-              </tr>
-              {% endfor %}
+            <tbody class="bg-white divide-y divide-gray-200" id="products-body">
+              <!-- Table rows will be populated by JavaScript -->
             </tbody>
           </table>
-        </div>
-      </div>
-
-      <!-- Pipeline Architecture Diagram -->
-      <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold mb-4 text-gray-800">Data Pipeline Architecture</h2>
-        <div class="flex justify-center">
-          <div class="bg-gray-100 p-4 rounded-lg">
-            <div class="flex flex-col items-center space-y-4">
-              <div class="bg-blue-100 px-4 py-2 rounded-lg">
-                <p class="font-medium">Data Generator</p>
-                <p class="text-sm text-gray-600">(Python)</p>
-              </div>
-              <div class="text-gray-400">↓</div>
-              <div class="bg-green-100 px-4 py-2 rounded-lg">
-                <p class="font-medium">Kafka Broker</p>
-                <p class="text-sm text-gray-600">(raw_orders topic)</p>
-              </div>
-              <div class="text-gray-400">↓</div>
-              <div class="bg-purple-100 px-4 py-2 rounded-lg">
-                <p class="font-medium">Kafka Consumer</p>
-                <p class="text-sm text-gray-600">(Python)</p>
-              </div>
-              <div class="text-gray-400">↓</div>
-              <div class="bg-yellow-100 px-4 py-2 rounded-lg">
-                <p class="font-medium">PostgreSQL</p>
-                <p class="text-sm text-gray-600">(Orders DB)</p>
-              </div>
-              <div class="text-gray-400">↓</div>
-              <div class="bg-red-100 px-4 py-2 rounded-lg">
-                <p class="font-medium">Dashboard</p>
-                <p class="text-sm text-gray-600">(Flask)</p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
 
     <script>
-      // Sales Trend Chart
-      const salesCtx = document.getElementById('salesChart').getContext('2d');
-      const salesChart = new Chart(salesCtx, {
-          type: 'line',
-          data: {
-              labels: [
-                  {% for day in sales_trend %}
-                      new Date('{{ day[0] }}').toLocaleDateString('en-US', {month: 'short', day: 'numeric'}){% if not loop.last %},{% endif %}
-                  {% endfor %}
-              ],
-              datasets: [{
-                  label: 'Daily Sales ($)',
-                  data: [
-                      {% for day in sales_trend %}
-                          {{ day[1] }}{% if not loop.last %},{% endif %}
-                      {% endfor %}
-                  ],
-                  backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                  borderColor: 'rgba(59, 130, 246, 1)',
-                  borderWidth: 2,
-                  tension: 0.1,
-                  fill: true
-              }, {
-                  label: 'Number of Orders',
-                  data: [
-                      {% for day in sales_trend %}
-                          {{ day[2] }}{% if not loop.last %},{% endif %}
-                      {% endfor %}
-                  ],
-                  backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                  borderColor: 'rgba(16, 185, 129, 1)',
-                  borderWidth: 2,
-                  tension: 0.1,
-                  fill: true
-              }]
-          },
-          options: {
-              responsive: true,
-              plugins: {
-                  legend: {
-                      position: 'top',
-                  },
-                  tooltip: {
-                      callbacks: {
-                          label: function(context) {
-                              return context.dataset.label + ': ' +
-                                  (context.datasetIndex === 0 ? '$' + context.raw.toFixed(2) : context.raw);
-                          }
-                      }
-                  }
+      // Initialize chart
+      const salesCtx = document.getElementById("salesChart").getContext("2d");
+      let salesChart = new Chart(salesCtx, {
+        type: "line",
+        data: { labels: [], datasets: [] },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: "top" },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  return (
+                    context.dataset.label +
+                    ": " +
+                    (context.datasetIndex === 0 ? "$" + context.raw.toFixed(2) : context.raw)
+                  );
+                },
               },
-              scales: {
-                  y: {
-                      beginAtZero: true,
-                      ticks: {
-                          callback: function(value) {
-                              return this.getLabelForValue(value).indexOf('$') === -1 ?
-                                  value : '$' + value.toFixed(2);
-                          }
-                      }
-                  }
-              }
-          }
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function (value) {
+                  return this.getLabelForValue(value).indexOf("$") === -1 ? value : "$" + value.toFixed(2);
+                },
+              },
+            },
+          },
+        },
       });
+
+      // Set up SSE connection
+      const eventSource = new EventSource("/stream");
+
+      eventSource.onmessage = function (e) {
+        const data = JSON.parse(e.data);
+        updateDashboard(data);
+      };
+
+      function updateDashboard(data) {
+        console.log("Updating with:", data); // Debug log
+        // Update summary cards
+        document.getElementById("summary-cards").innerHTML = `
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Total Sales</h3>
+                    <p class="text-3xl font-bold text-blue-600">$${data.total_sales.toFixed(2)}</p>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Today's Sales</h3>
+                    <p class="text-3xl font-bold text-green-600">$${data.today_sales.toFixed(2)}</p>
+                    <p class="text-sm text-gray-500">${data.today_orders} orders</p>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Data Pipeline Status</h3>
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                        <span class="text-sm">Real-time Updates Active</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">Last updated: ${new Date().toLocaleTimeString()}</p>
+                </div>
+            `;
+
+        // Update top products table
+        let productsHtml = "";
+        data.top_products.forEach((product) => {
+          productsHtml += `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.quantity}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">$${product.revenue.toFixed(
+                          2
+                        )}</td>
+                    </tr>
+                `;
+        });
+        document.getElementById("products-body").innerHTML = productsHtml;
+
+        // Update sales chart
+        salesChart.data.labels = data.sales_trend.map((day) => day.date);
+        salesChart.data.datasets = [
+          {
+            label: "Daily Sales ($)",
+            data: data.sales_trend.map((day) => day.sales),
+            backgroundColor: "rgba(59, 130, 246, 0.2)",
+            borderColor: "rgba(59, 130, 246, 1)",
+            borderWidth: 2,
+            tension: 0.1,
+            fill: true,
+          },
+          {
+            label: "Number of Orders",
+            data: data.sales_trend.map((day) => day.orders),
+            backgroundColor: "rgba(16, 185, 129, 0.2)",
+            borderColor: "rgba(16, 185, 129, 1)",
+            borderWidth: 2,
+            tension: 0.1,
+            fill: true,
+          },
+        ];
+        salesChart.update();
+      }
+
+      // Initial load
+      fetch("/stream")
+        .then((response) => response.text())
+        .then((data) => {
+          const jsonData = JSON.parse(data.replace(/^data: /, "").trim());
+          updateDashboard(jsonData);
+        });
     </script>
   </body>
 </html>
